@@ -178,3 +178,31 @@ export const stripe = {
   payoutSchedule: '毎週金曜（週次・自動）',
   feeRate: '3.5% + 0円 / 件',
 }
+
+export const googleCalendar = {
+  status: '接続済み', // 未接続 / 接続済み
+  account: 'kumamoto@cstudio.example.jp',
+  calendarName: 'C STUDIO 熊本店 予約',
+  calendarId: 'cstudio.kumamoto@group.calendar.google.com',
+  timezone: '(GMT+09:00) 日本標準時 東京',
+  lastSync: '2026/06/28 09:45',
+  syncedCount: 184,
+  scope: '予約の作成・更新・削除',
+}
+
+// ブースごとに分けるサブカレンダー
+export const boothCalendars = [
+  { booth: 'セルフブースA', calendar: 'C STUDIO 熊本｜セルフA', color: 'bg-sky-400' },
+  { booth: 'セルフブースB', calendar: 'C STUDIO 熊本｜セルフB', color: 'bg-emerald-400' },
+  { booth: '白壁スタジオ', calendar: 'C STUDIO 熊本｜白壁スタジオ', color: 'bg-violet-400' },
+  { booth: 'ペット対応ブース', calendar: 'C STUDIO 熊本｜ペット', color: 'bg-amber-400' },
+]
+
+// 予約ステータス → カレンダー同期ステータスの対応
+export const calendarSyncStatus = {
+  '予約確定': '同期済み',
+  '来店済み': '同期済み',
+  '仮予約': '同期待ち',
+  'キャンセル': '削除済み',
+  '無断キャンセル': '同期済み',
+}

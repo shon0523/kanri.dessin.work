@@ -4,6 +4,7 @@ import { store } from '../data/mock'
 const items = [
   { key: 'dashboard', label: 'ダッシュボード', icon: '▦' },
   { key: 'reservations', label: '予約管理', icon: '▤' },
+  { key: 'calendar', label: 'Googleカレンダー連携', icon: '📅', highlight: true },
   { key: 'booths', label: 'ブース・スペース', icon: '▣' },
   { key: 'menus', label: 'メニュー管理', icon: '☰' },
   { key: 'site', label: '予約サイト設定', icon: '◰' },

@@ -1,18 +1,29 @@
 import React, { useState, useMemo } from 'react'
-import { Card, Button, Badge, Modal, ReservationBadge, PaymentBadge, Field, Select, Input, yen } from '../components/ui'
-import { reservations, menus, booths } from '../data/mock'
+import { Card, Button, Badge, Modal, ReservationBadge, PaymentBadge, Field, Select, Input, Textarea, yen } from '../components/ui'
+import { reservations, menus, booths, googleCalendar, calendarSyncStatus } from '../data/mock'
 
-export default function Reservations({ showToast }) {
+export default function Reservations({ showToast, navigate }) {
+  const [rows, setRows] = useState(reservations)
   const [filters, setFilters] = useState({ date: '', menu: '', booth: '', status: '', pay: '' })
   const [selected, setSelected] = useState(null)
+  const [creating, setCreating] = useState(false)
 
-  const filtered = useMemo(() => reservations.filter((r) =>
+  const calConnected = googleCalendar.status === '接続済み'
+
+  const addReservation = (r) => {
+    setRows((list) => [r, ...list])
+    setCreating(false)
+    if (calConnected) showToast('予約を作成し、Googleカレンダーに登録しました')
+    else showToast('予約を作成しました（カレンダー未連携）', 'info')
+  }
+
+  const filtered = useMemo(() => rows.filter((r) =>
     (!filters.date || r.date === filters.date) &&
     (!filters.menu || r.menu === filters.menu) &&
     (!filters.booth || r.booth === filters.booth) &&
     (!filters.status || r.status === filters.status) &&
     (!filters.pay || r.pay === filters.pay)
-  ), [filters])
+  ), [rows, filters])
 
   const set = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }))
   const reset = () => setFilters({ date: '', menu: '', booth: '', status: '', pay: '' })
@@ -31,8 +42,21 @@ export default function Reservations({ showToast }) {
           <Field label="ブース"><Select value={filters.booth} onChange={set('booth')}><option value="">すべて</option>{booths.map((b) => <option key={b.id}>{b.name}</option>)}</Select></Field>
           <Field label="予約ステータス"><Select value={filters.status} onChange={set('status')}><option value="">すべて</option>{['仮予約', '予約確定', '来店済み', 'キャンセル', '無断キャンセル'].map((s) => <option key={s}>{s}</option>)}</Select></Field>
           <Field label="決済ステータス"><Select value={filters.pay} onChange={set('pay')}><option value="">すべて</option>{['未決済', '決済待ち', '決済完了', '一部返金', '全額返金', '現地決済'].map((s) => <option key={s}>{s}</option>)}</Select></Field>
-          <div className="flex items-end"><Button className="w-full">＋ 新規予約</Button></div>
+          <div className="flex items-end"><Button className="w-full" onClick={() => setCreating(true)}>＋ 新規予約</Button></div>
         </div>
+      </Card>
+
+      {/* Google カレンダー連携バナー */}
+      <Card className="p-3.5 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2.5">
+          <span className="w-8 h-8 rounded-lg bg-white border border-slate-200 grid place-items-center">📅</span>
+          <div className="text-[13px] text-ink-700">
+            {calConnected
+              ? <>Googleカレンダー連携 <Badge tone="green" dot>接続済み</Badge> ／ 新規予約は自動でカレンダーに登録されます</>
+              : <>Googleカレンダーは <Badge tone="gray" dot>未接続</Badge> です。連携すると予約が自動登録されます</>}
+          </div>
+        </div>
+        <Button variant="secondary" size="sm" onClick={() => navigate('calendar')}>カレンダー連携設定 →</Button>
       </Card>
 
       <Card>
@@ -74,13 +98,70 @@ export default function Reservations({ showToast }) {
         </div>
       </Card>
 
-      <DetailModal r={selected} onClose={() => setSelected(null)} showToast={showToast} />
+      <DetailModal r={selected} onClose={() => setSelected(null)} showToast={showToast} calConnected={calConnected} />
+      <CreateModal open={creating} onClose={() => setCreating(false)} onCreate={addReservation} calConnected={calConnected} />
     </div>
   )
 }
 
-function DetailModal({ r, onClose, showToast }) {
+function CreateModal({ open, onClose, onCreate, calConnected }) {
+  const [form, setForm] = useState({ customer: '', menu: menus[0].name, booth: booths[0].name, date: '2026/07/03', time: '10:00' })
+  const upd = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  const menu = menus.find((m) => m.name === form.menu) || menus[0]
+  const endTime = (() => {
+    const [h, mm] = form.time.split(':').map(Number)
+    const total = h * 60 + mm + menu.realTime
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+  })()
+
+  const submit = () => {
+    onCreate({
+      id: 'R-' + form.date.replace(/\//g, '') + '-' + Math.floor(Math.random() * 900 + 100),
+      datetime: `${form.date} ${form.time}`, date: form.date, time: `${form.time}〜${endTime}`,
+      customer: form.customer || '新規 顧客', menu: form.menu, booth: form.booth,
+      status: '予約確定', pay: menu.prepay !== 'OFF' ? '決済完了' : '現地決済', amount: menu.price,
+      phone: '090-0000-0000', email: 'guest@example.com',
+      method: menu.prepay !== 'OFF' ? 'クレジットカード' : '現地決済', memo: '新規作成（プロトタイプ）',
+    })
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="新規予約を作成" sub="作成すると予約情報がGoogleカレンダーに自動登録されます" size="md"
+      footer={<><Button variant="secondary" onClick={onClose}>キャンセル</Button><Button onClick={submit}>予約を作成{calConnected ? '＋カレンダー登録' : ''}</Button></>}>
+      <div className="grid md:grid-cols-2 gap-4">
+        <Field label="顧客名" required className="md:col-span-2"><Input value={form.customer} onChange={upd('customer')} placeholder="例：山田 美咲" /></Field>
+        <Field label="メニュー"><Select value={form.menu} onChange={upd('menu')}>{menus.map((m) => <option key={m.id}>{m.name}</option>)}</Select></Field>
+        <Field label="使用ブース"><Select value={form.booth} onChange={upd('booth')}>{booths.map((b) => <option key={b.id}>{b.name}</option>)}</Select></Field>
+        <Field label="予約日"><Input value={form.date} onChange={upd('date')} /></Field>
+        <Field label="開始時刻"><Input value={form.time} onChange={upd('time')} /></Field>
+
+        {/* 時間・占有プレビュー */}
+        <div className="md:col-span-2 rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-[12px] text-ink-600 space-y-1">
+          <div>表示所要時間 <b>{menu.displayTime}分</b> ／ 実予約（ブース占有）<b>{menu.realTime}分</b></div>
+          <div>占有時間枠：<b>{form.time}〜{endTime}</b>（{form.booth}）・同じ時間に同じブースは二重予約されません</div>
+        </div>
+
+        {/* カレンダー登録プレビュー */}
+        <div className="md:col-span-2 rounded-xl border border-sky-200 bg-sky-50/50 px-4 py-3">
+          <div className="flex items-center gap-2 text-[12px] font-semibold text-sky-800 mb-1">📅 Googleカレンダー登録プレビュー</div>
+          {calConnected ? (
+            <div className="text-[12px] text-ink-700">
+              <div className="font-medium">【予約】{form.menu} / {form.customer || '新規 顧客'}</div>
+              <div className="text-ink-500">{form.date} {form.time}〜{endTime} ・ 場所：{form.booth}</div>
+            </div>
+          ) : (
+            <div className="text-[12px] text-amber-700">Googleカレンダー未連携のため、この予約は自動登録されません。</div>
+          )}
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+function DetailModal({ r, onClose, showToast, calConnected }) {
   if (!r) return null
+  const calSync = calConnected ? (calendarSyncStatus[r.status] || '同期済み') : '未連携'
+  const calTone = { '同期済み': 'green', '同期待ち': 'orange', '削除済み': 'gray', '未連携': 'gray' }[calSync]
   const Row = ({ label, children }) => (
     <div className="flex justify-between gap-4 py-2 border-b border-slate-50 last:border-0">
       <span className="text-[13px] text-ink-500">{label}</span>
@@ -132,6 +213,20 @@ function DetailModal({ r, onClose, showToast }) {
         </Section>
         <Section title="管理メモ">
           <div className="py-2 text-[13px] text-ink-700 leading-relaxed">{r.memo}</div>
+        </Section>
+        <Section title="Googleカレンダー連携">
+          <Row label="同期ステータス"><Badge tone={calTone} dot>{calSync}</Badge></Row>
+          <Row label="登録カレンダー">{calConnected ? 'C STUDIO 熊本店 予約' : '—'}</Row>
+          <div className="flex justify-between gap-4 py-2">
+            <span className="text-[13px] text-ink-500">操作</span>
+            <button
+              className="text-[13px] font-medium text-sky-600 hover:text-sky-700 disabled:text-ink-300"
+              disabled={!calConnected}
+              onClick={() => showToast(calSync === '削除済み' ? 'カレンダーに再登録しました' : 'カレンダーを再同期しました')}
+            >
+              {calSync === '削除済み' ? 'カレンダーに再登録' : 'カレンダーを再同期'}
+            </button>
+          </div>
         </Section>
       </div>
     </Modal>

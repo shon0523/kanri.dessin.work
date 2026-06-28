@@ -13,10 +13,12 @@ import Stripe from './screens/Stripe'
 import Sales from './screens/Sales'
 import Customers from './screens/Customers'
 import StoreSettings from './screens/StoreSettings'
+import Calendar from './screens/Calendar'
 
 const PAGES = {
   dashboard: { title: 'ダッシュボード', crumb: ['ホーム', 'ダッシュボード'], C: Dashboard },
   reservations: { title: '予約管理', crumb: ['ホーム', '予約管理'], C: Reservations },
+  calendar: { title: 'Googleカレンダー連携', crumb: ['ホーム', '連携', 'Googleカレンダー'], C: Calendar },
   booths: { title: 'ブース・スペース管理', crumb: ['ホーム', 'ブース・スペース'], C: Booths },
   menus: { title: 'メニュー管理', crumb: ['ホーム', 'メニュー管理'], C: Menus },
   site: { title: '予約サイト設定', crumb: ['ホーム', '予約サイト設定'], C: SiteSettings },
